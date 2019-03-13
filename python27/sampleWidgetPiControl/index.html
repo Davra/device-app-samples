@@ -1,0 +1,257 @@
+<html>
+    <head>
+        
+        
+    <link href="/ui/vendors/bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/ui/vendors/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+
+    <link href="/ui/vendors/normalize-css/normalize.css" rel="stylesheet">
+    <link href="/ui/vendors/ion.rangeSlider/css/ion.rangeSlider.css" rel="stylesheet">
+    <link href="/ui/vendors/ion.rangeSlider/css/ion.rangeSlider.skinFlat.css" rel="stylesheet">
+
+    <link href="/ui/assets/bootstrap-gentelella-theme-for-widgets.css" rel="stylesheet">
+
+    <style>
+    </style> 
+        
+    </head>
+    <body style="background: #FFFFFF">
+        <script src="/ui/vendors/jquery/2.2.4/jquery.min.js"></script> 
+        <script src="/ui/vendors/bootstrap/2.3.2/js/bootstrap.min.js"></script>
+        
+
+        <script src="/ui/assets/bootstrap-gentelella-theme-for-widgets.js"></script>
+	
+        <script src="/ui/assets/widget-utilities.js"></script> 
+        
+        
+        
+        <div id="widgetContent" style="width: 96%; height: 100%;
+        margin: 2%; text-align: left; 
+        background-image: url('pi.jpg'); background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;">
+            <span>Run a function on a device agent</span><br>
+            <select id="selectdevice" class="form-control" style="width: 200px; max-width: 500px; margin-bottom: 10px;">
+                <option value="none">Select a device</option>
+            </select>
+            <br>
+            <button class="btn btn-primary" onclick="motorLeft()" 
+            style="position: absolute; left: 35%; top: 28%">Left</button>
+            <button class="btn btn-primary" onclick="motorRight()" 
+            style="position: absolute; left: 45%; top: 28%">Right</button>
+            
+            <button class="btn btn-primary" onclick="ledOn()" 
+            style="position: absolute; left: 70%; top: 68%">On</button>
+            <button class="btn btn-primary" onclick="ledOff()" 
+            style="position: absolute; left: 78%; top: 68%">Off</button>
+            
+            
+            <span id="form-actionDescription"></span>
+            <div id="divParameters"></div>
+            <span id="divFeedback" ></span><br>
+            <br>
+            <div id="divResponseOuter"style="display: none; width: 100%;" >
+                <div id="divDeviceUuid" style="display: none"></div>
+                <div id="divFunctionUuid" style="display: none" ></div>
+                <b>Query response for davra-function.finished event:</b><br>
+                <textarea id="textareaFeedback" style="width: 100%; height: 150px; display: none;"></textarea>
+                <br><br>
+                <b>Response value:</b><br>
+                <textarea id="textareaResponse" style="width: 100%; height: 150px; display: none;"></textarea>
+            </div>
+        </div>
+
+
+
+        <script>
+            var triggerTimer = null;    // Object to hod the timer for firing datapoints
+
+            // This gets called by the outer frame if the context is to be provided
+            function connecthingWidgetInit(context){
+                suppliedContext = context;
+                context.filters.subscribe(function(change) {
+                    console.log('Filters changed and are now: ', change);
+                });
+
+                // Setup all the devices list
+                widgetUtils.getDevicesFromServer(function(err, listOfDevices) {
+                    console.log('Devices loaded ', listOfDevices.length);
+                    for (var tmpIndex in listOfDevices) {
+                        var eachDevice = listOfDevices[tmpIndex];
+                        if(eachDevice.hasOwnProperty('UUID') && eachDevice.hasOwnProperty('name')) {
+                            $('#selectdevice').append('<option value="' + eachDevice.UUID + '">' + eachDevice.name + ' - ' + eachDevice.UUID + '</option>');
+                        }
+                    }
+                });
+
+                
+            }
+            // Run this if context will never arrive. ie. We are in preview mode, not an actual widget instance
+            $(function() {
+                if(window.location.href.toLowerCase().indexOf('widgetid') == -1) {
+                    console.log('No widgetId so will show sample data');
+                    
+                }
+                
+                
+            });
+
+
+            actions = [];
+
+            var findFunctions = function() {
+                $('#selectFunction option').remove();
+                // Setup all the devices list
+                widgetUtils.getDevicesFromServer(function(err, listOfDevices) {
+                    console.log('Devices loaded ', listOfDevices.length);
+                    selectedDeviceUuid = $('#selectdevice').val();
+                    for (var tmpIndex in listOfDevices) {
+                        var eachDevice = listOfDevices[tmpIndex];
+                        if(eachDevice.hasOwnProperty('UUID') && eachDevice["UUID"] == selectedDeviceUuid) {
+                            
+                            for(var key in eachDevice.capabilities) {
+                                if (key.startsWith("agent-action") || key.startsWith("app-action")) {
+                                    actions[key] = eachDevice.capabilities[key]
+                                }
+                            }
+                            for(var key in actions) {
+                                $('#selectFunction').append($("<option />").val(key).text(actions[key].functionLabel));
+                            }
+                            $('#selectFunction').change(function() {
+                                if (actions[$( this ).val()].functionDescription) {
+                                    $('#form-actionDescription').text(actions[$( this ).val()].functionDescription)
+                                } else {
+                                    $('#form-actionDescription').text('')
+                                }
+                                generateInputsBasedOnFunctionParameters(actions[$( this ).val()].functionParameters)
+                            })
+                            
+                        }
+                    }
+                });
+            }
+
+
+            // Create a UUID
+            function uuidv4() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+
+            var ledOn = function() {
+                runFunction("agent-action-ledTurnOn");
+            }
+            var ledOff = function() {
+                runFunction("agent-action-ledTurnOff");
+            }
+            var motorLeft = function() {
+                runFunction("agent-action-motorLeft");
+            }
+            var motorRight = function() {
+                runFunction("agent-action-motorRight");
+            }
+            
+            
+            var runFunction = function(selectedFunctionName) {
+                var functionUuid = uuidv4();
+                $('#divFunctionUuid').html(functionUuid); // Store for later
+                var deviceUuid = $('#selectdevice').val();
+                $('#divDeviceUuid').html(deviceUuid); // Store for later
+                //var selectedFunctionName = $('#selectFunction').val();
+                var functionParameterValues = {
+                    "functionUuid": functionUuid
+                }
+                $('#divParameters input').each(function(index, inputObj) {
+                    functionParameterValues[inputObj.name] = $(inputObj).val();
+                }); 
+                widgetUtils.ajaxPut('/api/v1/mqtt/http/' + deviceUuid,
+                { 
+                    "topic": "devices/"  + deviceUuid,
+                    "message": {
+                        "davra-function": selectedFunctionName,
+                        "functionParameterValues": functionParameterValues
+                    },
+                    "username": deviceUuid
+                },
+                function(err, response) {
+                    //$('#divFeedback').html('Sent at ' + (new Date().toLocaleString()));
+                });
+                //setTimeout(function() {
+                //    checkForFunctionResponse();
+                //}, 5000);
+            }
+
+
+            var checkForFunctionResponse = function() {
+                widgetUtils.ajaxPost('/api/v2/timeseriesData',
+                    {
+                        "metrics": [
+                            {
+                                "name": "davra.function.finished",
+                                "tags": { 
+                                    "UUID": $('#divDeviceUuid').html(),
+                                    "functionUuid": $('#divFunctionUuid').html() 
+                                },
+                                "order":"desc",
+                                "limit":1
+                            }
+                        ],
+                        "start_relative": {
+                            "value": "100",
+                            "unit": "minutes"
+                        }
+                    },
+                    function(err, response) {
+                        $('#divFeedback').html('Sent at ' + (new Date().toLocaleString()));
+                        $('#textareaFeedback').css('display', 'inline-block').val(JSON.stringify(response, null, 4));
+                        if(response.queries[0]["sample_size"] == 0) {
+                            setTimeout(function() {
+                                checkForFunctionResponse();
+                            }, 5000);
+                        } else {
+                            $('#textareaResponse').css('display', 'inline-block');
+                            $('#textareaResponse').val(response.queries[0]["results"][0]["values"][0][1]) ;
+                            $('#divResponseOuter').css('display', 'inline-block');
+                        }
+                    }
+                );
+                
+            }
+
+            
+            var generateInputsBasedOnFunctionParameters = function(functionParameters) {
+                $('#divParameters').html('');
+                for(var key in functionParameters) {
+                    if (functionParameters[key] === "string") {
+                        $('#divParameters').append('<div id="jobParameterString" class="jobConfigurationBlock"><label for="'+key+'" class="text-bold jobConfigurationLabel">'+key+'<span class="mandatory">*</span></label><input class="jobConfigurationInput" type="text" name="'+key+'"/></div>')
+                    } else if (functionParameters[key] === "file") {
+                        $('#divParameters').append('<div id="jobParameterFileSelector" class="jobConfigurationBlock"><label for="'+key+'" class="text-bold jobConfigurationLabel jobConfigurationButtonLabel">'+key+'<span class="mandatory">*</span></label><button name="'+key+'" class="btn-add btn btn-primary jobConfigurationButton" onclick="spawnModalToShowFileRepoSelector(\''+key+'\'); return false;"> Choose File </i> </button>'+
+                            '<span id="selectedFile" style="display:none;"><img src="/ui/images/job-file.svg" style="width: 55px;"/><span id="selectedFileName" style="margin-top: 1px; margin-left: 180px; display: block;"></span></span></div>')
+                    } else if (Array.isArray(functionParameters[key])) {
+                        var options = ""
+                        $.each(functionParameters[key], function(index, item) {
+                            options += '<option value="'+item+'">'+item+'</option>';
+                        })
+                        $('#divParameters').append('<div id="jobParameterString" class="jobConfigurationBlock"><label for="'+key+'" class="text-bold jobConfigurationLabelNoPadding jobConfigurationButtonLabel">'+key+'<span class="mandatory">*</span></label>' +
+                            '<select class="form-control form-inline-medium" name="'+key+'">'+options+' </select></div>');
+                    } else if (functionParameters[key] === "textarea") {
+                        $('#divParameters').append('<div id="jobParameterString" class="jobConfigurationBlock"><label for="'+key+'" class="">'+key+'<span class="mandatory">*</span></label>'
+                            + '<textarea name="'+key+'" class="scriptConfig" style="width: 100%; height: 190px; margin-bottom: 10px; resize: none;" '
+                            + 'placeholder="Enter the configuration script here. Note it cannot be changed once the job is set to run."'
+                            + 'title="Configuration cannot be changed once the job is set to run"></textarea></div>');
+                    }
+                }
+            }
+        
+
+
+
+
+        </script>
+
+
+    </body>
+</html>
