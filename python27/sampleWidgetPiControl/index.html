@@ -160,6 +160,9 @@
                 $('#divFunctionUuid').html(functionUuid); // Store for later
                 var deviceUuid = $('#selectdevice').val();
                 $('#divDeviceUuid').html(deviceUuid); // Store for later
+                if(deviceUuid === "none") {
+                    alert('Please choose a device first');
+                }
                 //var selectedFunctionName = $('#selectFunction').val();
                 var functionParameterValues = {
                     "functionUuid": functionUuid
@@ -200,7 +203,7 @@
                             }
                         ],
                         "start_relative": {
-                            "value": "100",
+                            "value": "100", 
                             "unit": "minutes"
                         }
                     },

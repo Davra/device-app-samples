@@ -1,4 +1,4 @@
 # Set the name for this application. No spaces, only aphanumeric.
 applicationName=sampleAppLed
 # Set the version for this application. No spaces, only aphanumeric and underscore.
-applicationVersion=1_4
+applicationVersion=1_5
