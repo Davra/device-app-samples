@@ -4,6 +4,7 @@ Description=[[applicationName]]
 [Service]
 Type=forking
 ExecStart=/usr/bin/python2.7 [[installationDir]]/app.py
+ExecStartPre=/bin/sleep 60
 Type=simple
 KillMode=process
 Restart=always
