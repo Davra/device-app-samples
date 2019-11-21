@@ -1,0 +1,4 @@
+# Set the name for this application. No spaces, only aphanumeric.
+applicationName=sampleAppDHT11
+# Set the version for this application. No spaces, only aphanumeric and underscore.
+applicationVersion=1_9
