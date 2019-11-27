@@ -9,3 +9,6 @@ Pin 4: Ground
 
 The sensor is described here: https://learn.adafruit.com/dht
 This extends the sample code from https://raw.githubusercontent.com/Freenove/Freenove_RFID_Starter_Kit_for_Raspberry_Pi/master/Code/Python_Code/21.1.1_DHT11/Freenove_DHT.py
+
+
+![Sample of DHT11 connected](dht11.jpg)
